@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yanmingchen.distributed.transaction.demo.order.mapper.TxOrderMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.yanmingchen.distributed.transaction.demo.entity.order.TxOrder">
+        <id column="id" property="id" />
+        <result column="code" property="code" />
+        <result column="buyer_name" property="buyerName" />
+        <result column="buyer_phone" property="buyerPhone" />
+        <result column="goods_id" property="goodsId" />
+        <result column="goods_price" property="goodsPrice" />
+        <result column="buy_count" property="buyCount" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, code, buyer_name, buyer_phone, goods_id, goods_price, buy_count, create_time, update_time
+    </sql>
+
+</mapper>

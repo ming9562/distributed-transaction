@@ -1,0 +1,45 @@
+package com.yanmingchen.distributed.transaction.core.netty.bean;
+
+import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+import lombok.Data;
+
+/**
+ * @author: YanmingChen
+ * @date: 2019-08-06
+ * @time: 18:50
+ * @description:
+ */
+@Data
+public class TransactionGroup implements Serializable {
+
+    /**
+     * 组id
+     */
+    private String groupId;
+
+    /**
+     * 超时时间
+     */
+    private long timeout;
+
+    /**
+     * 事务操作
+     */
+    private String action;
+
+    /**
+     * 分布式事务类型
+     */
+    private TransactionTypeEnum transactionType;
+
+    /**
+     * 组内各节点
+     */
+    private Map<String, TransactionItem> itemMap;
+
+}
