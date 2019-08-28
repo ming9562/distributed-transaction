@@ -8,8 +8,8 @@ package com.yanmingchen.distributed.transaction.core.enums;
  */
 public enum  TransactionTypeEnum {
 
-    two_pc("1", "两阶段提交"),
-    tcc("2", "补偿事务");
+    TWO_PC("1", "两阶段提交"),
+    TCC("2", "补偿事务");
 
     private String code;
     private String name;

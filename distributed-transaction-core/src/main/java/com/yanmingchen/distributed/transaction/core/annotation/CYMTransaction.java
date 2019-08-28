@@ -40,6 +40,6 @@ public @interface CYMTransaction {
      * 分布式事务类型
      * @return
      */
-    TransactionTypeEnum transactionType() default TransactionTypeEnum.tcc;
+    TransactionTypeEnum transactionType() default TransactionTypeEnum.TCC;
 
 }

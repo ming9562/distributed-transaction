@@ -32,6 +32,16 @@ spring:
         max-idle: 10        # 连接池中的最大空闲连接
         min-idle: 0        # 连接池中的最小空闲连接
     timeout: 5000ms
+  rabbitmq:
+    host: 47.104.171.230
+    port: 5672
+    username: admin
+    password: admin
+    virtual-host: /
+    connection-timeout: 10000
+    template:
+      mandatory: true
+    publisher-confirms: true    #  消息发送到交换机确认机制,是否确认回调
 
 server:
   port: 8002

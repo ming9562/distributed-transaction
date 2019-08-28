@@ -10,6 +10,7 @@ import com.yanmingchen.distributed.transaction.core.enums.TransactionActionEnum;
 import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
 import com.yanmingchen.distributed.transaction.core.netty.bean.TransactionItem;
 
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -39,6 +40,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RabbitConsumerUtil implements ApplicationContextAware {
 
+    private static CachingConnectionFactory cachingConnectionFactory;
+
+    @Autowired
+    public void setCachingConnectionFactory(CachingConnectionFactory cachingConnectionFactory) {
+        RabbitConsumerUtil.cachingConnectionFactory = cachingConnectionFactory;
+    }
+
     private static RedisTemplate redisTemplate;
 
     @Autowired
@@ -59,10 +67,10 @@ public class RabbitConsumerUtil implements ApplicationContextAware {
         String transactionId = split[1];
         log.info("监听队列：{}", groupId);
 
-        // 创建一个连接
-        Connection conn = ConnectionFactoryUtil.getRabbitConnection();
-        if (conn != null) {
-            try {
+        try {
+            // 创建一个连接
+            Connection conn = cachingConnectionFactory.getRabbitConnectionFactory().newConnection();
+            if (conn != null) {
                 // 创建通道
                 Channel channel = conn.createChannel();
                 channel.exchangeDeclare(transactionId, "fanout");//广播
@@ -97,7 +105,7 @@ public class RabbitConsumerUtil implements ApplicationContextAware {
 
                             // 如果通知事务回滚，调用cancel方法，如果正常，不做任何操作
                             if (TransactionActionEnum.rollback.getCode().equals(content)) {
-                                if (TransactionTypeEnum.tcc.equals(transactionType)) {
+                                if (TransactionTypeEnum.TCC.equals(transactionType)) {
                                     log.info("TCC事务回滚。。。{}", queueName);
                                     TransactionItem item = (TransactionItem) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP_ + groupId, transactionId);
                                     // 非出现异常的节点才回滚
@@ -110,19 +118,25 @@ public class RabbitConsumerUtil implements ApplicationContextAware {
                                     Method method = cancelTargetClass.getMethod(cancelMethodName, argsClassArr);
                                     Object cancelTarget = applicationContext.getBean(cancelTargetClass);
                                     method.invoke(cancelTarget, args);
-                                } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+                                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                                     log.info("2PC事务回滚。。。{}", queueName);
                                     // 回滚事务
                                     platformTransactionManager.rollback(transactionStatus);
                                 }
                             } else if (TransactionActionEnum.commit.getCode().equals(content)) {
-                                if (TransactionTypeEnum.tcc.equals(transactionType)) {
+                                if (TransactionTypeEnum.TCC.equals(transactionType)) {
                                     log.info("TCC事务提交。。。{}", queueName);
-                                } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+                                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                                     log.info("2PC事务提交。。。{}", queueName);
                                     // 提交事务
                                     platformTransactionManager.commit(transactionStatus);
                                 }
+                            }
+
+                            if (TransactionTypeEnum.TCC.equals(transactionType)) {
+                                log.info("============TCC事务结束============");
+                            } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
+                                log.info("============2PC事务结束============");
                             }
 
                             channel.basicAck(envelope.getDeliveryTag(), false); // 手动确认消息【参数说明：参数一：该消息的index；参数二：是否批量应答，true批量确认小于index的消息】
@@ -132,9 +146,9 @@ public class RabbitConsumerUtil implements ApplicationContextAware {
                     }
                 });
 
-            } catch (Exception e) {
-                e.printStackTrace();
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

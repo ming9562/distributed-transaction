@@ -2,6 +2,7 @@ package com.yanmingchen.distributed.transaction.demo.order.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yanmingchen.distributed.transaction.core.annotation.CYMTransaction;
+import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
 import com.yanmingchen.distributed.transaction.demo.entity.order.TxOrder;
 import com.yanmingchen.distributed.transaction.demo.order.mapper.TxOrderMapper;
 import com.yanmingchen.distributed.transaction.demo.order.service.ITxOrderService;
@@ -24,7 +25,8 @@ public class TxOrderServiceImpl extends ServiceImpl<TxOrderMapper, TxOrder> impl
     @Autowired
     private TxOrderMapper txOrderMapper;
 
-    @CYMTransaction(cancelMethod = "deleteLastInsertOrder")
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "deleteLastInsertOrder")
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC)
     @Override
     public void saveOrder(TxOrder txOrder) {
         System.out.println("saveOrder");

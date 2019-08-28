@@ -136,9 +136,9 @@ public class DistributedTransactionAspect {
             }
 
             log.info("{}:{}", groupId, transactionId);
-            if (TransactionTypeEnum.tcc.equals(transactionType)) {
+            if (TransactionTypeEnum.TCC.equals(transactionType)) {
                 log.info("============TCC事务开始============");
-            } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+            } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                 log.info("============2PC事务开始============");
             } else {
                 throw new Exception("未知分布式事务类型");
@@ -162,7 +162,7 @@ public class DistributedTransactionAspect {
                     redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
 
                     Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
-                    if (TransactionTypeEnum.tcc.equals(transactionType)) {
+                    if (TransactionTypeEnum.TCC.equals(transactionType)) {
                         // 找出所有预提交的节点，通知事务成功
                         for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
                             TransactionItem transactionItem = entry.getValue();
@@ -171,7 +171,7 @@ public class DistributedTransactionAspect {
                                 RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId(), TransactionActionEnum.commit.getCode());
                             }
                         }
-                    } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+                    } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                         // 找出所有准备提交的节点，通知提交事务
                         for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
                             TransactionItem transactionItem = entry.getValue();
@@ -186,11 +186,11 @@ public class DistributedTransactionAspect {
                 case Participant:
                     List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
                     Map<Object, Object> resourceMap = TransactionSynchronizationManager.getResourceMap();
-                    if (TransactionTypeEnum.tcc.equals(transactionType)) {
+                    if (TransactionTypeEnum.TCC.equals(transactionType)) {
                         item.setStatus(TransactionStatusEnum.preCommit.getCode());
                         redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
                         log.info("{}:{}预提交", groupId, transactionId);
-                    } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+                    } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                         item.setStatus(TransactionStatusEnum.waitCommit.getCode());
                         redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
                         log.info("{}:{}等待提交", groupId, transactionId);
@@ -201,10 +201,10 @@ public class DistributedTransactionAspect {
                     break;
             }
 
-            if (TransactionTypeEnum.tcc.equals(transactionType)) {
+            if (TransactionTypeEnum.TCC.equals(transactionType)) {
                 platformTransactionManager.commit(transactionStatus);
                 log.info("TCC事务开始提交事务");
-            } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+            } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                 log.info("2PC事务开始等待提交");
             }
         } catch (Throwable throwable) {
@@ -226,7 +226,7 @@ public class DistributedTransactionAspect {
 
                     Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
 
-                    if (TransactionTypeEnum.tcc.equals(transactionType)) {
+                    if (TransactionTypeEnum.TCC.equals(transactionType)) {
                         // 找出所有预提交的节点，调用取消方法
                         for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
                             TransactionItem transactionItem = entry.getValue();
@@ -235,7 +235,7 @@ public class DistributedTransactionAspect {
                                 RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId() , TransactionActionEnum.rollback.getCode());
                             }
                         }
-                    } else if (TransactionTypeEnum.two_pc.equals(transactionType)) {
+                    } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
                         // 找出所有等待提交的节点，通知事务回滚
                         for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
                             TransactionItem transactionItem = entry.getValue();
@@ -260,6 +260,11 @@ public class DistributedTransactionAspect {
             throw throwable;
         } finally {
             TransactionThreadLocalUtils.remove();
+            if (TransactionTypeEnum.TCC.equals(transactionType)) {
+                log.info("============TCC事务结束============");
+            } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
+                log.info("============2PC事务结束============");
+            }
         }
 
         return returnValue;

@@ -3,6 +3,7 @@ package com.yanmingchen.distributed.transaction.demo.stock.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yanmingchen.distributed.transaction.core.annotation.CYMTransaction;
+import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
 import com.yanmingchen.distributed.transaction.demo.entity.stock.TxStock;
 import com.yanmingchen.distributed.transaction.demo.stock.mapper.TxStockMapper;
 import com.yanmingchen.distributed.transaction.demo.stock.service.ITxStockService;
@@ -25,7 +26,8 @@ public class TxStockServiceImpl extends ServiceImpl<TxStockMapper, TxStock> impl
     @Autowired
     private TxStockMapper txStockMapper;
 
-    @CYMTransaction(cancelMethod = "addStock")
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "addStock")
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC)
     @Override
     public void updateStock(TxStock txStock) {
         System.out.println("updateStock");

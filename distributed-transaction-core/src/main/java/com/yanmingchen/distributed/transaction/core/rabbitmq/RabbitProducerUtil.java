@@ -3,6 +3,10 @@ package com.yanmingchen.distributed.transaction.core.rabbitmq;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import java.util.Date;
 
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +17,16 @@ import lombok.extern.slf4j.Slf4j;
  * @time: 14:18
  * @description:
  */
+@Component
 @Slf4j
 public class RabbitProducerUtil {
+
+    private static CachingConnectionFactory cachingConnectionFactory;
+
+    @Autowired
+    public void setCachingConnectionFactory(CachingConnectionFactory cachingConnectionFactory) {
+        RabbitProducerUtil.cachingConnectionFactory = cachingConnectionFactory;
+    }
 
     public static void sendTransactionAction(String queueName, String content) {
         String[] split = queueName.split(":");
@@ -22,10 +34,10 @@ public class RabbitProducerUtil {
         String transactionId = split[1];
         log.info("发送消息：{}", queueName);
 
-        // 创建一个连接
-        Connection conn = ConnectionFactoryUtil.getRabbitConnection();
-        if (conn != null) {
-            try {
+        try {
+            // 创建一个连接
+            Connection conn = cachingConnectionFactory.getRabbitConnectionFactory().newConnection();
+            if (conn != null) {
                 // 创建通道
                 Channel channel = conn.createChannel();
                 channel.exchangeDeclare(transactionId, "fanout");//广播
@@ -36,9 +48,9 @@ public class RabbitProducerUtil {
                 // 关闭连接
                 channel.close();
                 conn.close();
-            } catch (Exception e) {
-                e.printStackTrace();
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

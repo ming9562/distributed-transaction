@@ -10,7 +10,6 @@ import com.yanmingchen.distributed.transaction.demo.entity.stock.TxStock;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Date;
@@ -31,7 +30,8 @@ public class BuyServiceImpl implements BuyService {
     @Autowired
     private TxStockClient txStockClient;
 
-    @CYMTransaction(transactionType = TransactionTypeEnum.tcc)
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC)
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC)
     @Override
     public void buyGoods() {
         System.out.println("buyGoods");
