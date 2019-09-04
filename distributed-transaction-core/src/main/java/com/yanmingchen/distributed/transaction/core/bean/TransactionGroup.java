@@ -37,6 +37,11 @@ public class TransactionGroup implements Serializable {
     private TransactionTypeEnum transactionType;
 
     /**
+     * 事务组中出现的异常
+     */
+    private Class throwableClass;
+
+    /**
      * 组内各节点
      */
     private Map<String, TransactionItem> itemMap;

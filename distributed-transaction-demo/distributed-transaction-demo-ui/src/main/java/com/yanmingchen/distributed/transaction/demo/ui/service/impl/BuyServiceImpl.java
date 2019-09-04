@@ -1,13 +1,12 @@
 package com.yanmingchen.distributed.transaction.demo.ui.service.impl;
 
-import com.netflix.hystrix.exception.HystrixRuntimeException;
+import com.yanmingchen.distributed.transaction.core.annotation.CYMTransaction;
 import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
+import com.yanmingchen.distributed.transaction.demo.entity.order.TxOrder;
+import com.yanmingchen.distributed.transaction.demo.entity.stock.TxStock;
 import com.yanmingchen.distributed.transaction.demo.ui.client.TxOrderClient;
 import com.yanmingchen.distributed.transaction.demo.ui.client.TxStockClient;
 import com.yanmingchen.distributed.transaction.demo.ui.service.BuyService;
-import com.yanmingchen.distributed.transaction.core.annotation.CYMTransaction;
-import com.yanmingchen.distributed.transaction.demo.entity.order.TxOrder;
-import com.yanmingchen.distributed.transaction.demo.entity.stock.TxStock;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,8 +30,8 @@ public class BuyServiceImpl implements BuyService {
     @Autowired
     private TxStockClient txStockClient;
 
-//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC)
-    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {HystrixRuntimeException.class})
+    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, noRollbackFor = {ArithmeticException.class})
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
     @Override
     public void buyGoods() {
         System.out.println("buyGoods");

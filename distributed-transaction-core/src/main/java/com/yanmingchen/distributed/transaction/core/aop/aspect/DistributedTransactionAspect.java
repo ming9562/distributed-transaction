@@ -136,7 +136,7 @@ public class DistributedTransactionAspect {
 
                 TransactionGroup group = new TransactionGroup();
                 group.setGroupId(groupId);
-                group.setTimeout(cymTransaction.timeout());
+                group.setTimeout(timeout);
                 group.setAction(TransactionActionEnum.wait.getCode());
                 group.setTransactionType(transactionType);
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
@@ -166,9 +166,16 @@ public class DistributedTransactionAspect {
             returnValue = proceedingJoinPoint.proceed(args);
 
             // 提交事务
-            doCommit(transactionType, transactionStatus, groupId, transactionId);
+            doCommit(transactionType, transactionStatus, groupId, transactionId, null);
         } catch (Throwable throwable) {
             log.error("事务处理出异常", throwable);
+
+            // 获取组中出现的异常
+            TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
+            Class throwableClass = group.getThrowableClass();
+            if (throwableClass == null) {
+                throwableClass = throwable.getClass();
+            }
 
             // 事务是否已完成
             boolean transactionFinished = false;
@@ -179,9 +186,9 @@ public class DistributedTransactionAspect {
                     if (transactionFinished) {
                         break;
                     }
-                    if (throwable.getClass().equals(rollbackForClass)) {
+                    if (throwableClass.equals(rollbackForClass)) {
                         // 回滚事务
-                        doRollback(transactionType, transactionStatus, groupId, transactionId);
+                        doRollback(transactionType, transactionStatus, groupId, transactionId, throwable);
                         transactionFinished = true;
                     }
                 }
@@ -193,9 +200,9 @@ public class DistributedTransactionAspect {
                     if (transactionFinished) {
                         break;
                     }
-                    if (throwable.getClass().getName().equals(className)) {
+                    if (throwableClass.getName().equals(className)) {
                         // 回滚事务
-                        doRollback(transactionType, transactionStatus, groupId, transactionId);
+                        doRollback(transactionType, transactionStatus, groupId, transactionId, throwable);
                         transactionFinished = true;
                     }
                 }
@@ -207,9 +214,9 @@ public class DistributedTransactionAspect {
                     if (transactionFinished) {
                         break;
                     }
-                    if (throwable.getClass().equals(noRollbackForClass)) {
+                    if (throwableClass.equals(noRollbackForClass)) {
                         // 提交事务
-                        doCommit(transactionType, transactionStatus, groupId, transactionId);
+                        doCommit(transactionType, transactionStatus, groupId, transactionId, throwable);
                         transactionFinished = true;
                     }
                 }
@@ -221,9 +228,9 @@ public class DistributedTransactionAspect {
                     if (transactionFinished) {
                         break;
                     }
-                    if (throwable.getClass().getName().equals(className)) {
+                    if (throwableClass.getName().equals(className)) {
                         // 提交事务
-                        doCommit(transactionType, transactionStatus, groupId, transactionId);
+                        doCommit(transactionType, transactionStatus, groupId, transactionId, throwable);
                         transactionFinished = true;
                     }
                 }
@@ -232,7 +239,7 @@ public class DistributedTransactionAspect {
             // 如果事务未完成，回滚事务
             if (!transactionFinished) {
                 // 回滚事务
-                doRollback(transactionType, transactionStatus, groupId, transactionId);
+                doRollback(transactionType, transactionStatus, groupId, transactionId, throwable);
             }
 
             throw throwable;
@@ -251,7 +258,8 @@ public class DistributedTransactionAspect {
      * @param groupId
      * @param transactionId
      */
-    private void doCommit(TransactionTypeEnum transactionType, TransactionStatus transactionStatus, String groupId, String transactionId) {
+    private void doCommit(TransactionTypeEnum transactionType, TransactionStatus transactionStatus, String groupId, String transactionId, Throwable throwable) {
+        TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
         TransactionItem item = (TransactionItem)  redisTemplate.opsForHash().get(CacheConstant.TX_GROUP_ + groupId, transactionId);
         TransactionRoleEnum transactionRoleEnum = TransactionRoleEnum.byCode(item.getRole());
         switch (transactionRoleEnum) {
@@ -259,10 +267,17 @@ public class DistributedTransactionAspect {
 
                 log.info("事务成功。。。");
 
+                if (throwable != null) {
+                    if (group.getThrowableClass() == null) {
+                        group.setThrowableClass(throwable.getClass());
+                    }
+                    group.setAction(TransactionActionEnum.commit.getCode());
+                    redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
+                }
+
                 item.setStatus(TransactionStatusEnum.commited.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
 
-                TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
                 group.setAction(TransactionActionEnum.commit.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
 
@@ -289,6 +304,13 @@ public class DistributedTransactionAspect {
 
                 break;
             case Participant:
+                if (throwable != null) {
+                    if (group.getThrowableClass() == null) {
+                        group.setThrowableClass(throwable.getClass());
+                    }
+                    redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
+                }
+
                 List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
                 Map<Object, Object> resourceMap = TransactionSynchronizationManager.getResourceMap();
                 if (TransactionTypeEnum.TCC.equals(transactionType)) {
@@ -321,7 +343,8 @@ public class DistributedTransactionAspect {
      * @param groupId
      * @param transactionId
      */
-    private void doRollback(TransactionTypeEnum transactionType, TransactionStatus transactionStatus, String groupId, String transactionId) {
+    private void doRollback(TransactionTypeEnum transactionType, TransactionStatus transactionStatus, String groupId, String transactionId, Throwable throwable) {
+        TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
         TransactionItem item = (TransactionItem)  redisTemplate.opsForHash().get(CacheConstant.TX_GROUP_ + groupId, transactionId);
         TransactionRoleEnum transactionRoleEnum = TransactionRoleEnum.byCode(item.getRole());
         switch (transactionRoleEnum) {
@@ -329,12 +352,14 @@ public class DistributedTransactionAspect {
 
                 log.error("事务出异常。。。");
 
-                item.setStatus(TransactionStatusEnum.throwException.getCode());
-                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
-
-                TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
+                if (group.getThrowableClass() == null) {
+                    group.setThrowableClass(throwable.getClass());
+                }
                 group.setAction(TransactionActionEnum.rollback.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
+
+                item.setStatus(TransactionStatusEnum.throwException.getCode());
+                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
 
                 Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
 
@@ -360,6 +385,11 @@ public class DistributedTransactionAspect {
 
                 break;
             case Participant:
+                if (group.getThrowableClass() == null) {
+                    group.setThrowableClass(throwable.getClass());
+                }
+                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
+
                 item.setStatus(TransactionStatusEnum.throwException.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
                 break;

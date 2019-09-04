@@ -26,8 +26,8 @@ public class TxStockServiceImpl extends ServiceImpl<TxStockMapper, TxStock> impl
     @Autowired
     private TxStockMapper txStockMapper;
 
-//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "addStock")
-    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
+    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "addStock", noRollbackFor = {ArithmeticException.class})
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
     @Override
     public void updateStock(TxStock txStock) {
         System.out.println("updateStock");
