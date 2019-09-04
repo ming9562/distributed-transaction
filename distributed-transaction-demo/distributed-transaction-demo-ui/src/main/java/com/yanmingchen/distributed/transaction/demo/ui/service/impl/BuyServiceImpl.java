@@ -30,8 +30,8 @@ public class BuyServiceImpl implements BuyService {
     @Autowired
     private TxStockClient txStockClient;
 
-    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, noRollbackFor = {ArithmeticException.class})
-//    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, noRollbackFor = {ArithmeticException.class})
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
     @Override
     public void buyGoods() {
         System.out.println("buyGoods");

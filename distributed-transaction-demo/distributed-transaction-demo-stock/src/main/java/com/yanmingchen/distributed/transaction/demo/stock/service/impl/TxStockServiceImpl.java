@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 /**
  * <p>
  *  服务实现类
@@ -26,8 +28,8 @@ public class TxStockServiceImpl extends ServiceImpl<TxStockMapper, TxStock> impl
     @Autowired
     private TxStockMapper txStockMapper;
 
-    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "addStock", noRollbackFor = {ArithmeticException.class})
-//    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
+//    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "addStock", noRollbackFor = {ArithmeticException.class})
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
     @Override
     public void updateStock(TxStock txStock) {
         System.out.println("updateStock");
@@ -37,7 +39,9 @@ public class TxStockServiceImpl extends ServiceImpl<TxStockMapper, TxStock> impl
         stock.setSelledCount(stock.getSelledCount() + txStock.getSelledCount());
         stock.setRemainCount(stock.getRemainCount() + txStock.getRemainCount());
         txStockMapper.updateById(stock);
-        int i = 1 / 0;
+//        int i = 1 / 0; // java.lang.ArithmeticException
+        Boolean b = null;
+        boolean bb = b == false; // java.lang.NullPointerException
     }
 
     public void addStock(TxStock txStock) {

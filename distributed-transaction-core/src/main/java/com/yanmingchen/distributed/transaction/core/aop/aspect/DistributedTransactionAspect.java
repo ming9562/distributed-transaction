@@ -139,6 +139,7 @@ public class DistributedTransactionAspect {
                 group.setTimeout(timeout);
                 group.setAction(TransactionActionEnum.wait.getCode());
                 group.setTransactionType(transactionType);
+                group.setThrowException(false);
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
             } else {
                 item.setRole(TransactionRoleEnum.Participant.getCode());
@@ -172,8 +173,9 @@ public class DistributedTransactionAspect {
 
             // 获取组中出现的异常
             TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
+            boolean isThrowException = group.isThrowException();
             Class throwableClass = group.getThrowableClass();
-            if (throwableClass == null) {
+            if (!isThrowException) {
                 throwableClass = throwable.getClass();
             }
 
@@ -268,18 +270,16 @@ public class DistributedTransactionAspect {
                 log.info("事务成功。。。");
 
                 if (throwable != null) {
-                    if (group.getThrowableClass() == null) {
+                    if (!group.isThrowException()) {
+                        group.setThrowException(true);
                         group.setThrowableClass(throwable.getClass());
                     }
-                    group.setAction(TransactionActionEnum.commit.getCode());
-                    redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
                 }
+                group.setAction(TransactionActionEnum.commit.getCode());
+                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
 
                 item.setStatus(TransactionStatusEnum.commited.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
-
-                group.setAction(TransactionActionEnum.commit.getCode());
-                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
 
                 Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
                 if (TransactionTypeEnum.TCC.equals(transactionType)) {
@@ -305,10 +305,11 @@ public class DistributedTransactionAspect {
                 break;
             case Participant:
                 if (throwable != null) {
-                    if (group.getThrowableClass() == null) {
+                    if (!group.isThrowException()) {
+                        group.setThrowException(true);
                         group.setThrowableClass(throwable.getClass());
+                        redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
                     }
-                    redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
                 }
 
                 List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
@@ -352,8 +353,11 @@ public class DistributedTransactionAspect {
 
                 log.error("事务出异常。。。");
 
-                if (group.getThrowableClass() == null) {
-                    group.setThrowableClass(throwable.getClass());
+                if (throwable != null) {
+                    if (!group.isThrowException()) {
+                        group.setThrowException(true);
+                        group.setThrowableClass(throwable.getClass());
+                    }
                 }
                 group.setAction(TransactionActionEnum.rollback.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
@@ -385,10 +389,13 @@ public class DistributedTransactionAspect {
 
                 break;
             case Participant:
-                if (group.getThrowableClass() == null) {
-                    group.setThrowableClass(throwable.getClass());
+                if (throwable != null) {
+                    if (!group.isThrowException()) {
+                        group.setThrowException(true);
+                        group.setThrowableClass(throwable.getClass());
+                        redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
+                    }
                 }
-                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP, groupId, group);
 
                 item.setStatus(TransactionStatusEnum.throwException.getCode());
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);

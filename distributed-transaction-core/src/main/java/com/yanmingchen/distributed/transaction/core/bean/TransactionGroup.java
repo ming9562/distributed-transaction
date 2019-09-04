@@ -37,6 +37,11 @@ public class TransactionGroup implements Serializable {
     private TransactionTypeEnum transactionType;
 
     /**
+     * 是否抛异常
+     */
+    private boolean throwException;
+
+    /**
      * 事务组中出现的异常
      */
     private Class throwableClass;
