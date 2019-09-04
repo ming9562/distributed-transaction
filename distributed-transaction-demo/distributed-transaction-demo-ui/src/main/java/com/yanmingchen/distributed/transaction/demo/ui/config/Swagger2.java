@@ -33,7 +33,7 @@ public class Swagger2 {
 		pars.add(ticketPar.build());
 
 		return new Docket(DocumentationType.SWAGGER_2).apiInfo(apiInfo()).select()
-				.apis(RequestHandlerSelectors.basePackage("com.yanmingchen.distrbuted.transaction")).paths(PathSelectors.any())
+				.apis(RequestHandlerSelectors.basePackage("com.yanmingchen.distributed.transaction.demo.ui")).paths(PathSelectors.any())
 				.build().globalOperationParameters(pars);
 	}
 

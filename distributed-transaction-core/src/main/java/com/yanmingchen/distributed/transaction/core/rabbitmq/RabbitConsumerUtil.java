@@ -8,7 +8,7 @@ import com.rabbitmq.client.Envelope;
 import com.yanmingchen.distributed.transaction.core.constant.CacheConstant;
 import com.yanmingchen.distributed.transaction.core.enums.TransactionActionEnum;
 import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
-import com.yanmingchen.distributed.transaction.core.netty.bean.TransactionItem;
+import com.yanmingchen.distributed.transaction.core.bean.TransactionItem;
 
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.beans.BeansException;

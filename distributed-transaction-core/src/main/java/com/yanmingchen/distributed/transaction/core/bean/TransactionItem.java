@@ -1,4 +1,4 @@
-package com.yanmingchen.distributed.transaction.core.netty.bean;
+package com.yanmingchen.distributed.transaction.core.bean;
 
 import java.io.Serializable;
 

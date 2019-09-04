@@ -1,5 +1,6 @@
 package com.yanmingchen.distributed.transaction.demo.ui.service.impl;
 
+import com.netflix.hystrix.exception.HystrixRuntimeException;
 import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
 import com.yanmingchen.distributed.transaction.demo.ui.client.TxOrderClient;
 import com.yanmingchen.distributed.transaction.demo.ui.client.TxStockClient;
@@ -31,7 +32,7 @@ public class BuyServiceImpl implements BuyService {
     private TxStockClient txStockClient;
 
 //    @CYMTransaction(transactionType = TransactionTypeEnum.TCC)
-    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC)
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {HystrixRuntimeException.class})
     @Override
     public void buyGoods() {
         System.out.println("buyGoods");

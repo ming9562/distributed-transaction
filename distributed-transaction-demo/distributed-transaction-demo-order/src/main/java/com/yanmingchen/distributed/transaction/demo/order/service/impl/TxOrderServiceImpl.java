@@ -26,7 +26,7 @@ public class TxOrderServiceImpl extends ServiceImpl<TxOrderMapper, TxOrder> impl
     private TxOrderMapper txOrderMapper;
 
 //    @CYMTransaction(transactionType = TransactionTypeEnum.TCC, cancelMethod = "deleteLastInsertOrder")
-    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC)
+    @CYMTransaction(transactionType = TransactionTypeEnum.TWO_PC, noRollbackFor = {ArithmeticException.class})
     @Override
     public void saveOrder(TxOrder txOrder) {
         System.out.println("saveOrder");

@@ -16,7 +16,7 @@ import io.swagger.annotations.ApiOperation;
  * @time: 11:39
  * @description:
  */
-@Api("购物API")
+@Api(tags = "购物API")
 @RestController
 @RequestMapping(value = "/buy")
 public class BuyController {
@@ -25,7 +25,7 @@ public class BuyController {
     private BuyService buyService;
 
     @ApiOperation("购买商品")
-    @RequestMapping("/buyGoods")
+    @PostMapping("/buyGoods")
     public void buyGoods() {
         buyService.buyGoods();
     }

@@ -1,9 +1,8 @@
-package com.yanmingchen.distributed.transaction.core.netty.bean;
+package com.yanmingchen.distributed.transaction.core.bean;
 
 import com.yanmingchen.distributed.transaction.core.enums.TransactionTypeEnum;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 
 import lombok.Data;
