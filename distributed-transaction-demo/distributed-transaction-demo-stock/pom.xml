@@ -9,7 +9,7 @@
         <version>2.1.6.RELEASE</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.yanmingchen.distributed.transaction.demo.stock</groupId>
+    <groupId>com.cym.distributed.transaction.demo.stock</groupId>
     <artifactId>distributed-transaction-demo-stock</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>distributed-transaction-demo-stock</name>
@@ -98,7 +98,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.yanmingchen.distributed.transaction</groupId>
+            <groupId>com.cym.distributed.transaction</groupId>
             <artifactId>distributed-transaction-demo-entity</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>

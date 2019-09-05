@@ -81,7 +81,7 @@ eureka:
 
 # mybatis-plus配置
 mybatis-plus:
-  typeAliasesPackage: com.yanmingchen.distributed.transaction.demo.entity.order
+  typeAliasesPackage: com.cym.distributed.transaction.demo.entity.order
   mapperLocations: classpath*:/mapper/*.xml
   # 原生配置
   configuration:

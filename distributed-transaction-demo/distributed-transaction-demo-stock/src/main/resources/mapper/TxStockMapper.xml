@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.yanmingchen.distributed.transaction.demo.stock.mapper.TxStockMapper">
+<mapper namespace="com.cym.distributed.transaction.demo.stock.mapper.TxStockMapper">
 
     <!-- 通用查询映射结果 -->
-    <resultMap id="BaseResultMap" type="com.yanmingchen.distributed.transaction.demo.entity.stock.TxStock">
+    <resultMap id="BaseResultMap" type="com.cym.distributed.transaction.demo.entity.stock.TxStock">
         <id column="id" property="id" />
         <result column="goods_id" property="goodsId" />
         <result column="selled_count" property="selledCount" />

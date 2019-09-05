@@ -9,8 +9,8 @@ security:
   basic:
     enabled: true
   user:
-    name: yanmingchen  # \u7528\u6237\u540D
-    password: yanmingchen1234   # \u7528\u6237\u5BC6\u7801
+    name: cym  # \u7528\u6237\u540D
+    password: cym1234   # \u7528\u6237\u5BC6\u7801
 
 eureka:
   client:
