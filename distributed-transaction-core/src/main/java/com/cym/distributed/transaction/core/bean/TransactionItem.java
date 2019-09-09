@@ -1,6 +1,7 @@
 package com.cym.distributed.transaction.core.bean;
 
 import java.io.Serializable;
+import java.util.List;
 
 import lombok.Data;
 
@@ -46,12 +47,12 @@ public class TransactionItem implements Serializable {
     /**
      * 目标方法参数
      */
-    private Object[] targetMethodArgsArr;
+//    private Object[] targetMethodArgsArr;
 
     /**
      * 目标方法参数字节码
      */
-    private Class<?>[] targetMethodArgsClassArr;
+    private List<String> targetMethodArgsClassList;
 
     /**
      * 取消方法

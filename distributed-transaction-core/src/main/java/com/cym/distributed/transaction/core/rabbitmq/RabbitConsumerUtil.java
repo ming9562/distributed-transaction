@@ -1,14 +1,14 @@
 package com.cym.distributed.transaction.core.rabbitmq;
 
+import com.cym.distributed.transaction.core.bean.TransactionItem;
+import com.cym.distributed.transaction.core.constant.CacheConstant;
+import com.cym.distributed.transaction.core.enums.TransactionActionEnum;
+import com.cym.distributed.transaction.core.enums.TransactionTypeEnum;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
-import com.cym.distributed.transaction.core.constant.CacheConstant;
-import com.cym.distributed.transaction.core.enums.TransactionActionEnum;
-import com.cym.distributed.transaction.core.enums.TransactionTypeEnum;
-import com.cym.distributed.transaction.core.bean.TransactionItem;
 
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.beans.BeansException;
@@ -25,6 +25,7 @@ import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -73,7 +74,8 @@ public class RabbitConsumerUtil implements ApplicationContextAware {
             if (conn != null) {
                 // 创建通道
                 Channel channel = conn.createChannel();
-                channel.exchangeDeclare(transactionId, "fanout");//广播
+                //广播
+                channel.exchangeDeclare(transactionId, "fanout");
                 // 声明队列【参数说明：参数一：队列名称，参数二：是否持久化；参数三：是否独占模式；参数四：消费者断开连接时是否删除队列；参数五：消息其他参数】
                 channel.queueDeclare(groupId, false, false, false, null);
 
@@ -97,49 +99,58 @@ public class RabbitConsumerUtil implements ApplicationContextAware {
                             }
                         }
 
-                        System.out.println(transactionStatus + "   " + platformTransactionManager);
+                        log.info("{}:{}", transactionStatus, platformTransactionManager);
                         try {
 //                        String routingKey = envelope.getRoutingKey(); // 队列名称
 //                        String contentType = properties.getContentType(); // 内容类型
-                            String content = new String(body, "utf-8"); // 消息正文
+                            // 消息正文
+                            String content = new String(body, "utf-8");
 
                             // 如果通知事务回滚，调用cancel方法，如果正常，不做任何操作
-                            if (TransactionActionEnum.rollback.getCode().equals(content)) {
-                                if (TransactionTypeEnum.TCC.equals(transactionType)) {
-                                    log.info("TCC事务回滚。。。{}", queueName);
-                                    TransactionItem item = (TransactionItem) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP_ + groupId, transactionId);
-                                    // 非出现异常的节点才回滚
-                                    String cancelTargetClassName = item.getTargetClass();
-                                    String targetMethod = item.getTargetMethod();
-                                    Object[] args = item.getTargetMethodArgsArr();
-                                    Class<?>[] argsClassArr = item.getTargetMethodArgsClassArr();
-                                    Class cancelTargetClass = Class.forName(cancelTargetClassName);
-                                    String cancelMethodName = item.getCancelMethod();
-                                    Method method = cancelTargetClass.getMethod(cancelMethodName, argsClassArr);
-                                    Object cancelTarget = applicationContext.getBean(cancelTargetClass);
-                                    method.invoke(cancelTarget, args);
-                                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-                                    log.info("2PC事务回滚。。。{}", queueName);
-                                    // 回滚事务
-                                    platformTransactionManager.rollback(transactionStatus);
-                                }
-                            } else if (TransactionActionEnum.commit.getCode().equals(content)) {
-                                if (TransactionTypeEnum.TCC.equals(transactionType)) {
-                                    log.info("TCC事务提交。。。{}", queueName);
-                                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-                                    log.info("2PC事务提交。。。{}", queueName);
-                                    // 提交事务
-                                    platformTransactionManager.commit(transactionStatus);
-                                }
+                            switch (transactionType) {
+                                case TCC:
+                                    if (TransactionActionEnum.rollback.getCode().equals(content)) {
+                                        log.info("TCC事务回滚。。。{}", queueName);
+                                        TransactionItem item = (TransactionItem) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP_ + groupId, transactionId);
+                                        // 非出现异常的节点才回滚
+                                        String cancelTargetClassName = item.getTargetClass();
+                                        String targetMethod = item.getTargetMethod();
+//                                        Object[] args = item.getTargetMethodArgsArr();
+//                                        List<String> targetMethodArgsClassList = item.getTargetMethodArgsClassList();
+//                                        List<Class<?>> classList = new ArrayList<>(targetMethodArgsClassList.size());
+//                                        for (String classStr : targetMethodArgsClassList) {
+//                                            Class<?> clazz = Class.forName(classStr);
+//                                            classList.add(clazz);
+//                                        }
+//                                        Class<?>[] classArr = (Class<?>[]) classList.toArray();
+//                                        Class cancelTargetClass = Class.forName(cancelTargetClassName);
+//                                        String cancelMethodName = item.getCancelMethod();
+//                                        Method method = cancelTargetClass.getMethod(cancelMethodName, classArr);
+//                                        Object cancelTarget = applicationContext.getBean(cancelTargetClass);
+//                                        method.invoke(cancelTarget, args);
+                                    } else if (TransactionActionEnum.commit.getCode().equals(content)) {
+                                        log.info("TCC事务提交。。。{}", queueName);
+                                    }
+                                    log.info("============TCC事务结束============");
+                                    break;
+                                case TWO_PC:
+                                    if (TransactionActionEnum.rollback.getCode().equals(content)) {
+                                        log.info("2PC事务回滚。。。{}", queueName);
+                                        // 回滚事务
+                                        platformTransactionManager.rollback(transactionStatus);
+                                    } else if (TransactionActionEnum.commit.getCode().equals(content)) {
+                                        log.info("2PC事务提交。。。{}", queueName);
+                                        // 提交事务
+                                        platformTransactionManager.commit(transactionStatus);
+                                    }
+                                    log.info("============2PC事务结束============");
+                                    break;
+                                default:
+                                    break;
                             }
 
-                            if (TransactionTypeEnum.TCC.equals(transactionType)) {
-                                log.info("============TCC事务结束============");
-                            } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-                                log.info("============2PC事务结束============");
-                            }
-
-                            channel.basicAck(envelope.getDeliveryTag(), false); // 手动确认消息【参数说明：参数一：该消息的index；参数二：是否批量应答，true批量确认小于index的消息】
+                            // 手动确认消息【参数说明：参数一：该消息的index；参数二：是否批量应答，true批量确认小于index的消息】
+                            channel.basicAck(envelope.getDeliveryTag(), false);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }

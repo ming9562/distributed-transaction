@@ -34,7 +34,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -69,6 +69,10 @@ public class DistributedTransactionAspect {
         Class<?> classTarget = proceedingJoinPoint.getTarget().getClass();
         String methodName = proceedingJoinPoint.getSignature().getName();
         Class<?>[] par = ((MethodSignature) proceedingJoinPoint.getSignature()).getParameterTypes();
+        List<String> parList = new ArrayList<>();
+        for (Class<?> clazz : par) {
+            parList.add(clazz.getName());
+        }
         Method objMethod = classTarget.getMethod(methodName, par);
         CYMTransactional cymTransactional = objMethod.getAnnotation(CYMTransactional.class);
         String transactionManager = cymTransactional.transactionManager();
@@ -114,8 +118,8 @@ public class DistributedTransactionAspect {
             item.setStatus(TransactionStatusEnum.unCommit.getCode());
             item.setTargetClass(classTarget.getName());
             item.setTargetMethod(methodName);
-            item.setTargetMethodArgsArr(args);
-            item.setTargetMethodArgsClassArr(par);
+//            item.setTargetMethodArgsArr(args);
+            item.setTargetMethodArgsClassList(parList);
             item.setCancelMethod(cancelMethod);
 
             // 判断是否有transactionId和groupId，如果没有，表示是事务的发起者
@@ -127,10 +131,7 @@ public class DistributedTransactionAspect {
 
                 item.setRole(TransactionRoleEnum.Originator.getCode());
                 item.setTransactionId(transactionId);
-
-                Map<String, TransactionItem> itemMap = new HashMap<>(1);
-                itemMap.put(transactionId, item);
-                redisTemplate.opsForHash().putAll(CacheConstant.TX_GROUP_ + groupId, itemMap);
+                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
 
                 TransactionGroup group = new TransactionGroup();
                 group.setGroupId(groupId);
@@ -143,9 +144,7 @@ public class DistributedTransactionAspect {
                 item.setRole(TransactionRoleEnum.Participant.getCode());
 
                 // 如果已经存在groupId和transactionId，表示是事务的参与者
-                Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
-                itemMap.put(transactionId, item);
-                redisTemplate.opsForHash().putAll(CacheConstant.TX_GROUP_ + groupId, itemMap);
+                redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
 
                 // 事务组
                 TransactionGroup group = (TransactionGroup) redisTemplate.opsForHash().get(CacheConstant.TX_GROUP, groupId);
@@ -280,24 +279,31 @@ public class DistributedTransactionAspect {
                 redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
 
                 Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
-                if (TransactionTypeEnum.TCC.equals(transactionType)) {
-                    // 找出所有预提交的节点，通知事务成功
-                    for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
-                        TransactionItem transactionItem = entry.getValue();
-                        if (TransactionStatusEnum.preCommit.getCode().equals(transactionItem.getStatus())) {
-                            // 通知各节点事务成功
-                            RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId(), TransactionActionEnum.commit.getCode());
+                switch (transactionType) {
+                    case TCC:
+                        // 找出所有预提交的节点，通知事务成功
+                        for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
+                            TransactionItem transactionItem = entry.getValue();
+                            if (TransactionStatusEnum.preCommit.getCode().equals(transactionItem.getStatus())) {
+                                // 通知各节点事务成功
+                                RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId(), TransactionActionEnum.commit.getCode());
+                            }
                         }
-                    }
-                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-                    // 找出所有准备提交的节点，通知提交事务
-                    for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
-                        TransactionItem transactionItem = entry.getValue();
-                        if (TransactionStatusEnum.waitCommit.getCode().equals(transactionItem.getStatus())) {
-                            // 通知各节点提交事务
-                            RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId(), TransactionActionEnum.commit.getCode());
+                        break;
+                    case TWO_PC:
+                        // 找出所有准备提交的节点，通知提交事务
+                        for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
+                            TransactionItem transactionItem = entry.getValue();
+                            if (TransactionStatusEnum.waitCommit.getCode().equals(transactionItem.getStatus())) {
+                                // 通知各节点提交事务
+                                RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId(), TransactionActionEnum.commit.getCode());
+                            }
                         }
-                    }
+                        // 最后提交发起者事务
+                        platformTransactionManager.commit(transactionStatus);
+                        break;
+                    default:
+                        break;
                 }
 
                 break;
@@ -312,14 +318,19 @@ public class DistributedTransactionAspect {
 
                 List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
                 Map<Object, Object> resourceMap = TransactionSynchronizationManager.getResourceMap();
-                if (TransactionTypeEnum.TCC.equals(transactionType)) {
-                    item.setStatus(TransactionStatusEnum.preCommit.getCode());
-                    redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
-                    log.info("{}:{}预提交", groupId, transactionId);
-                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-                    item.setStatus(TransactionStatusEnum.waitCommit.getCode());
-                    redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
-                    log.info("{}:{}等待提交", groupId, transactionId);
+                switch (transactionType) {
+                    case TCC:
+                        item.setStatus(TransactionStatusEnum.preCommit.getCode());
+                        redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
+                        log.info("{}:{}预提交", groupId, transactionId);
+                        break;
+                    case TWO_PC:
+                        item.setStatus(TransactionStatusEnum.waitCommit.getCode());
+                        redisTemplate.opsForHash().put(CacheConstant.TX_GROUP_ + groupId, transactionId, item);
+                        log.info("{}:{}等待提交", groupId, transactionId);
+                        break;
+                    default:
+                        break;
                 }
                 // 打开一个mq监听事务结果信息
                 RabbitConsumerUtil.listenTransactionAction(groupId + ":" + transactionId, transactionStatus, platformTransactionManager, synchronizations, resourceMap, transactionType);
@@ -327,11 +338,16 @@ public class DistributedTransactionAspect {
                 break;
         }
 
-        if (TransactionTypeEnum.TCC.equals(transactionType)) {
-            platformTransactionManager.commit(transactionStatus);
-            log.info("TCC事务开始提交事务");
-        } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-            log.info("2PC事务开始等待提交");
+        switch (transactionType) {
+            case TCC:
+                log.info("TCC事务开始提交事务");
+                platformTransactionManager.commit(transactionStatus);
+                break;
+            case TWO_PC:
+                log.info("2PC事务开始等待提交");
+                break;
+            default:
+                break;
         }
     }
 
@@ -365,24 +381,29 @@ public class DistributedTransactionAspect {
 
                 Map<String, TransactionItem> itemMap = (Map<String, TransactionItem>) redisTemplate.opsForHash().entries(CacheConstant.TX_GROUP_ + groupId);
 
-                if (TransactionTypeEnum.TCC.equals(transactionType)) {
-                    // 找出所有预提交的节点，调用取消方法
-                    for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
-                        TransactionItem transactionItem = entry.getValue();
-                        if (TransactionStatusEnum.preCommit.getCode().equals(transactionItem.getStatus())) {
-                            // 通知预提交节点调用取消方法
-                            RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId() , TransactionActionEnum.rollback.getCode());
+                switch (transactionType) {
+                    case TCC:
+                        // 找出所有预提交的节点，调用取消方法
+                        for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
+                            TransactionItem transactionItem = entry.getValue();
+                            if (TransactionStatusEnum.preCommit.getCode().equals(transactionItem.getStatus())) {
+                                // 通知预提交节点调用取消方法
+                                RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId() , TransactionActionEnum.rollback.getCode());
+                            }
                         }
-                    }
-                } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-                    // 找出所有等待提交的节点，通知事务回滚
-                    for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
-                        TransactionItem transactionItem = entry.getValue();
-                        if (TransactionStatusEnum.waitCommit.getCode().equals(transactionItem.getStatus())) {
-                            // 通知准备提交的节点回滚事务
-                            RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId() , TransactionActionEnum.rollback.getCode());
+                        break;
+                    case TWO_PC:
+                        // 找出所有等待提交的节点，通知事务回滚
+                        for (Map.Entry<String, TransactionItem> entry : itemMap.entrySet()) {
+                            TransactionItem transactionItem = entry.getValue();
+                            if (TransactionStatusEnum.waitCommit.getCode().equals(transactionItem.getStatus())) {
+                                // 通知准备提交的节点回滚事务
+                                RabbitProducerUtil.sendTransactionAction(groupId + ":" + transactionItem.getTransactionId() , TransactionActionEnum.rollback.getCode());
+                            }
                         }
-                    }
+                        break;
+                    default:
+                        break;
                 }
 
                 break;
@@ -412,10 +433,15 @@ public class DistributedTransactionAspect {
      */
     private void doRelease(TransactionTypeEnum transactionType) {
         TransactionThreadLocalUtils.remove();
-        if (TransactionTypeEnum.TCC.equals(transactionType)) {
-            log.info("============TCC事务结束============");
-        } else if (TransactionTypeEnum.TWO_PC.equals(transactionType)) {
-            log.info("============2PC事务结束============");
+        switch (transactionType) {
+            case TCC:
+                log.info("============TCC事务结束============");
+                break;
+            case TWO_PC:
+                log.info("============2PC事务结束============");
+                break;
+            default:
+                break;
         }
     }
 

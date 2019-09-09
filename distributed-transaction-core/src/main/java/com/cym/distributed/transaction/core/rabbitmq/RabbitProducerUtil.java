@@ -38,7 +38,8 @@ public class RabbitProducerUtil {
             if (conn != null) {
                 // 创建通道
                 Channel channel = conn.createChannel();
-                channel.exchangeDeclare(transactionId, "fanout");//广播
+                //广播
+                channel.exchangeDeclare(transactionId, "fanout");
                 // 声明队列【参数说明：参数一：队列名称，参数二：是否持久化；参数三：是否独占模式；参数四：消费者断开连接时是否删除队列；参数五：消息其他参数】
                 channel.queueDeclare(groupId, false, false, false, null);
                 // 发送内容【参数说明：参数一：交换机名称；参数二：队列名称，参数三：消息的其他属性-routing headers，此属性为MessageProperties.PERSISTENT_TEXT_PLAIN用于设置纯文本消息存储到硬盘；参数四：消息主体】
